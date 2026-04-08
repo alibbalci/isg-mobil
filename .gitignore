@@ -1,0 +1,28 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Spring / Java
+backend/target/
+*.class
+*.log
+
+# Python
+ai-service/.venv/
+ai-service/venv/
+ai-service/__pycache__/
+ai-service/**/*.pyc
+
+# Environment / Secrets
+.env
+*.env
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+maven-log.txt
+maven-output.txt
+.txt
