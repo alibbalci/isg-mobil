@@ -1,16 +1,15 @@
 package com.alibalci.isgmobil.isg.isgbackend.controller;
 
+import java.util.Map;
+
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/test")
 public class TestController {
 
-    @GetMapping("/secure")
-    public String secure() {
-        return "JWT çalışıyor";
+    @GetMapping("/api/test")
+    public Map<String, String> test() {
+        return Map.of("message", "Backend bağlantısı başarılı");
     }
-
 }

@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
 # override=True eklendi! Bu sayede sistemdeki eski şifre ezilip, .env dosyasındaki GÜNCEL şifre alınır.
-load_dotenv(override=True)
+ROOT_ENV = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(ROOT_ENV, override=True)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 

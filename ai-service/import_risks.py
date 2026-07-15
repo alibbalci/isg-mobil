@@ -1,116 +1,115 @@
 import pandas as pd
 import psycopg2
+from config import DB_CONFIG
 
-# ==============================
-# 🔧 AYARLAR
-# ==============================
 EXCEL_PATH = "tehlikeveoneri.xlsx"
 
-DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "database": "isg_db",
-    "user": "postgres",
-    "password": "1234",
-}
+REQUIRED_COLUMNS = [
+    "tehlike_kodu",
+    "tehlike_adi",
+    "kategori",
+    "olasi_zarar",
+    "oneri_listesi",
+    "olasilik",
+    "siddet",
+    "sorumlu_kisi",
+    "duzeltme_suresi_gun",
+    "onlem_sonrasi_olasilik",
+    "onlem_sonrasi_siddet",
+]
 
-# ==============================
-# 🔌 DB BAĞLANTI
-# ==============================
-conn = psycopg2.connect(**DB_CONFIG)
-cur = conn.cursor()
 
-# ==============================
-# 📥 EXCEL OKUMA
-# ==============================
-df = pd.read_excel(EXCEL_PATH, engine="openpyxl")
+def to_int_or_none(value):
+    if value == "" or pd.isna(value):
+        return None
+    return int(value)
 
-# 🔥 kolon hatalarını temizle
-df.columns = df.columns.str.strip()
 
-# 🔥 boş değerleri normalize et
-df = df.fillna("")
+def parse_oneri_listesi(value):
+    value = str(value).strip()
 
-print(f"Toplam kayıt: {len(df)}")
+    if not value:
+        return []
 
-# ==============================
-# 🔄 DATA INSERT
-# ==============================
-success = 0
-fail = 0
+    return [item.strip() for item in value.split("|") if item.strip()]
 
-for i, row in df.iterrows():
-    try:
-        # 🔥 oneri_listesi parse
-        oneri_raw = str(row["oneri_listesi"]).strip()
-        if oneri_raw:
-            oneri_listesi = [x.strip() for x in oneri_raw.split("|") if x.strip()]
-        else:
-            oneri_listesi = []
 
-        cur.execute(
-            """
-            INSERT INTO risk_catalog (
-                tehlike_kodu,
-                tehlike_adi,
-                kategori,
-                olasi_zarar,
-                oneri_listesi,
-                olasilik,
-                siddet,
-                sorumlu_kisi,
-                duzeltme_suresi_gun,
-                onlem_sonrasi_olasilik,
-                onlem_sonrasi_siddet
+def main():
+    df = pd.read_excel(EXCEL_PATH, engine="openpyxl")
+
+    df.columns = df.columns.str.strip()
+    df = df.fillna("")
+
+    missing_columns = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+
+    if missing_columns:
+        raise ValueError(f"Excel içinde eksik kolonlar var: {missing_columns}")
+
+    print(f"Toplam Excel satırı: {len(df)}")
+
+    conn = psycopg2.connect(**DB_CONFIG)
+    cur = conn.cursor()
+
+    inserted = 0
+    skipped = 0
+    failed = 0
+
+    for i, row in df.iterrows():
+        try:
+            oneri_listesi = parse_oneri_listesi(row["oneri_listesi"])
+
+            cur.execute(
+                """
+                INSERT INTO risk_catalog (
+                    tehlike_kodu,
+                    tehlike_adi,
+                    kategori,
+                    olasi_zarar,
+                    oneri_listesi,
+                    olasilik,
+                    siddet,
+                    sorumlu_kisi,
+                    duzeltme_suresi_gun,
+                    onlem_sonrasi_olasilik,
+                    onlem_sonrasi_siddet
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (tehlike_kodu) DO NOTHING;
+                """,
+                (
+                    str(row["tehlike_kodu"]).strip(),
+                    str(row["tehlike_adi"]).strip(),
+                    str(row["kategori"]).strip(),
+                    str(row["olasi_zarar"]).strip(),
+                    oneri_listesi,
+                    to_int_or_none(row["olasilik"]),
+                    to_int_or_none(row["siddet"]),
+                    str(row["sorumlu_kisi"]).strip(),
+                    to_int_or_none(row["duzeltme_suresi_gun"]),
+                    to_int_or_none(row["onlem_sonrasi_olasilik"]),
+                    to_int_or_none(row["onlem_sonrasi_siddet"]),
+                ),
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (tehlike_kodu) DO NOTHING;
-        """,
-            (
-                row["tehlike_kodu"],
-                row["tehlike_adi"],
-                row["kategori"],
-                row["olasi_zarar"],
-                oneri_listesi,
-                int(row["olasilik"]) if row["olasilik"] != "" else None,
-                int(row["siddet"]) if row["siddet"] != "" else None,
-                row["sorumlu_kisi"],
-                (
-                    int(row["duzeltme_suresi_gun"])
-                    if row["duzeltme_suresi_gun"] != ""
-                    else None
-                ),
-                (
-                    int(row["onlem_sonrasi_olasilik"])
-                    if row["onlem_sonrasi_olasilik"] != ""
-                    else None
-                ),
-                (
-                    int(row["onlem_sonrasi_siddet"])
-                    if row["onlem_sonrasi_siddet"] != ""
-                    else None
-                ),
-            ),
-        )
 
-        success += 1
+            if cur.rowcount == 1:
+                inserted += 1
+            else:
+                skipped += 1
 
-    except Exception as e:
-        print(f"❌ Hata (satır {i}): {e}")
-        fail += 1
+        except Exception as e:
+            print(f"❌ Hata satır {i + 2}: {e}")
+            failed += 1
 
-# ==============================
-# 💾 COMMIT
-# ==============================
-conn.commit()
+    conn.commit()
+    cur.close()
+    conn.close()
 
-cur.close()
-conn.close()
+    print("================================")
+    print(f"✔ Eklenen: {inserted}")
+    print(f"↪ Zaten vardı / geçildi: {skipped}")
+    print(f"❌ Hatalı: {failed}")
+    print("✔ Import tamamlandı.")
 
-# ==============================
-# 📊 RAPOR
-# ==============================
-print("================================")
-print(f"✔ Başarılı: {success}")
-print(f"❌ Hatalı: {fail}")
-print("✔ Import tamamlandı.")
+
+if __name__ == "__main__":
+    main()

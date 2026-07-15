@@ -4,38 +4,51 @@ from config import GEMINI_API_KEY
 client = genai.Client(api_key=GEMINI_API_KEY)
 
 
-def generate_comment(description, risks):
+def generate_comment(risk_name: str, damage: str, suggestions):
+    """
+    Seçilen tek riskin önerilerini profesyonel rapor paragrafına dönüştürür.
+    Bu fonksiyon yeni öneri üretmez, sadece verilen önerileri düzenler.
+    """
 
-    risk_text = ""
+    if not suggestions:
+        return "Bu risk için tanımlı öneri bulunamadı."
 
-    for r in risks:
-        risk_text += f"""
-Risk: {r.get('name')}
-Olası zarar: {r.get('damage')}
-Öneriler: {r.get('suggestions')}
-"""
+    if isinstance(suggestions, list):
+        suggestions_text = "\n".join([f"- {s}" for s in suggestions if str(s).strip()])
+    else:
+        suggestions_text = str(suggestions).replace("|", "\n- ")
 
     prompt = f"""
 Sen bir iş güvenliği raporlama sisteminde çalışan metin düzenleme asistanısın.
 
-Aşağıda bir gözleme ait iş güvenliği önlem maddeleri verilmiştir:
+Aşağıda seçilmiş TEK bir iş güvenliği riski ve bu riske ait katalog önerileri verilmiştir.
 
-{risk_text}
+Risk adı:
+{risk_name}
+
+Olası zarar:
+{damage}
+
+Verilen öneriler:
+{suggestions_text}
 
 GÖREVİN:
-Bu önlem maddelerini profesyonel iş güvenliği raporu formatında
-tek bir bütünleşik "Alınması Gereken Önlemler" paragrafına dönüştür.
+Sadece verilen önerileri kullanarak profesyonel iş güvenliği raporu dilinde
+tek bir "Alınması Gereken Önlemler" paragrafı oluştur.
 
 KURALLAR:
-- SADECE verilen önlemleri kullan.
+- SADECE verilen önerileri kullan.
 - Yeni öneri ekleme.
+- Mevzuat, eğitim, periyodik kontrol gibi inputta olmayan öneriler ekleme.
 - Teknik anlamı değiştirme.
-- Benzer maddeleri birleştir.
+- Olası zararı öneri gibi yazma.
+- Benzer maddeleri anlamı bozmadan birleştir.
 - Gereksiz tekrarları kaldır.
-- Kurumsal/rapor dilinde yaz.
+- Kurumsal ve resmi rapor dilinde yaz.
 - Çıktı tek paragraf olsun.
 - Madde işareti kullanma.
 - Başlık ekleme.
+- Risk puanı, olasılık veya şiddet yazma.
 
 ÇIKTI:
 Sadece düzenlenmiş önlem paragrafını ver.
@@ -46,8 +59,11 @@ Sadece düzenlenmiş önlem paragrafını ver.
             model="gemini-2.5-flash", contents=prompt
         )
 
-        return response.text
+        if not response.text or not response.text.strip():
+            return "Öneri paragrafı üretilemedi."
+
+        return response.text.strip()
 
     except Exception as e:
         print("LLM ERROR:", e)
-        return "Risk analizi yapılamadı"
+        return "Öneri paragrafı üretilemedi."

@@ -28,12 +28,22 @@ def analyze_image(image_url: str):
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
         prompt = """
-Bu bir iş güvenliği fotoğrafıdır.
-Fotoğraftaki riski kısa ve net şekilde açıkla.
+Sen deneyimli bir iş güvenliği uzmanısın.
 
-Örnek:
-"elektrik panosu açık"
-"raf devrilme riski"
+Görevin:
+Verilen görseldeki iş sağlığı ve güvenliği açısından dikkat edilmesi gereken tehlikeli durumu profesyonel gözlem diliyle açıklamak.
+
+Kurallar:
+- Görselde gerçekten görülen durumları yaz.
+- Gereksiz yorum veya tahmin ekleme.
+- Çok kısa cevap verme.
+- Çok uzun rapor yazma.
+- Teknik ve profesyonel bir gözlem cümlesi kur.
+- Risk puanı veya çözüm önerisi verme.
+- Sadece gözlem yaz.
+
+Çıktı formatı:
+1-2 cümlelik profesyonel saha gözlemi.
 """
 
         # 3️⃣ GEMINI CALL
