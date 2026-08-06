@@ -1,9 +1,9 @@
 package com.alibalci.isgmobil.isg.isgbackend.exception;
 
-public class BadRequestException
+public class PhotoUploadException
         extends BusinessException {
 
-    public BadRequestException(
+    public PhotoUploadException(
             String code,
             String message) {
         super(code, message);

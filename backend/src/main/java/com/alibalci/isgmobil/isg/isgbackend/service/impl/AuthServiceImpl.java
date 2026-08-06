@@ -1,30 +1,37 @@
 package com.alibalci.isgmobil.isg.isgbackend.service.impl;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import com.alibalci.isgmobil.isg.isgbackend.dto.AuthResponse;
 import com.alibalci.isgmobil.isg.isgbackend.dto.LoginRequest;
 import com.alibalci.isgmobil.isg.isgbackend.dto.RegisterRequest;
 import com.alibalci.isgmobil.isg.isgbackend.dto.UserResponse;
 import com.alibalci.isgmobil.isg.isgbackend.entity.Role;
 import com.alibalci.isgmobil.isg.isgbackend.entity.User;
+import com.alibalci.isgmobil.isg.isgbackend.exception.ConflictException;
+import com.alibalci.isgmobil.isg.isgbackend.exception.UnauthorizedException;
 import com.alibalci.isgmobil.isg.isgbackend.repository.UserRepository;
 import com.alibalci.isgmobil.isg.isgbackend.security.JwtService;
 import com.alibalci.isgmobil.isg.isgbackend.service.AuthService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
-    private  final UserRepository userRepository;
-    private  final PasswordEncoder passwordEncoder;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+
     @Override
     public UserResponse register(RegisterRequest registerRequest) {
         // e-mail var mı kontrolü
-        if(userRepository.existsByEmail(registerRequest.email())){
-            throw new RuntimeException("Email already exists");
+        if (userRepository.existsByEmail(registerRequest.email())) {
+            throw new ConflictException(
+                    "EMAIL_ALREADY_EXISTS",
+                    "Bu e-posta adresi zaten kullanılıyor");
         }
         // yeni kullanıcı oluşumu
         User user = new User();
@@ -38,27 +45,42 @@ public class AuthServiceImpl implements AuthService {
         // db save
         User savedUser = userRepository.save(user);
 
-        return  new UserResponse(
+        return new UserResponse(
                 savedUser.getId(),
                 savedUser.getFullName(),
                 savedUser.getEmail(),
-                savedUser.getRole()
-        );
+                savedUser.getRole());
     }
 
     @Override
-    public String login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request) {
 
         // email kontrol
         User user = userRepository
                 .findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UnauthorizedException(
+                        "INVALID_CREDENTIALS",
+                        "E-posta veya şifre hatalı"));
 
-        if(!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new RuntimeException("Password does not match");
+        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+            throw new UnauthorizedException(
+                    "INVALID_CREDENTIALS",
+                    "E-posta veya şifre hatalı");
         }
 
-        return jwtService.generateToken(user);
+        String token = jwtService.generateToken(user);
+
+        UserResponse userResponse = new UserResponse(
+                user.getId(),
+                user.getFullName(),
+                user.getEmail(),
+                user.getRole());
+
+        return new AuthResponse(
+                token,
+                "Bearer",
+                86400L, // 1 day in seconds
+                userResponse);
 
     }
 }

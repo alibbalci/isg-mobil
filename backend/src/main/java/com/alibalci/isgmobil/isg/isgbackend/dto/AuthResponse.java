@@ -1,0 +1,8 @@
+package com.alibalci.isgmobil.isg.isgbackend.dto;
+
+public record AuthResponse(
+        String accessToken,
+        String tokenType,
+        Long expiresIn,
+        UserResponse user) {
+}

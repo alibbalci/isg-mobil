@@ -2,6 +2,7 @@ package com.alibalci.isgmobil.isg.isgbackend.service.impl;
 
 import com.alibalci.isgmobil.isg.isgbackend.dto.UserResponse;
 import com.alibalci.isgmobil.isg.isgbackend.entity.User;
+import com.alibalci.isgmobil.isg.isgbackend.exception.ResourceNotFoundException;
 import com.alibalci.isgmobil.isg.isgbackend.repository.UserRepository;
 import com.alibalci.isgmobil.isg.isgbackend.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,8 @@ public class UserServiceImpl implements UserService {
     @Override
     public User getCurrentUser(String email) {
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "USER_NOT_FOUND",
+                        "Kullanıcı bulunamadı"));
     }
 }

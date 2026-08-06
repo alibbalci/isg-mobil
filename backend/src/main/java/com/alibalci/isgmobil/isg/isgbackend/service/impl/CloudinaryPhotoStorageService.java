@@ -1,6 +1,8 @@
 package com.alibalci.isgmobil.isg.isgbackend.service.impl;
 
 
+import com.alibalci.isgmobil.isg.isgbackend.exception.BadRequestException;
+import com.alibalci.isgmobil.isg.isgbackend.exception.PhotoUploadException;
 import com.alibalci.isgmobil.isg.isgbackend.service.PhotoStorageService;
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
@@ -19,6 +21,12 @@ public class CloudinaryPhotoStorageService implements PhotoStorageService {
 
     @Override
     public String uploadPhoto(MultipartFile photo) {
+        if (photo == null || photo.isEmpty()) {
+            throw new BadRequestException(
+                    "PHOTO_REQUIRED",
+                    "Yüklenecek fotoğraf boş olamaz");
+        }
+
         try {
 
             Map uploadResult = cloudinary.uploader().upload(
@@ -28,8 +36,10 @@ public class CloudinaryPhotoStorageService implements PhotoStorageService {
 
             return uploadResult.get("secure_url").toString();
 
-        } catch (Exception e) {
-            throw new RuntimeException("Foto yüklenemedi"+e.getMessage());
+        } catch (Exception exception) {
+            throw new PhotoUploadException(
+                    "PHOTO_UPLOAD_FAILED",
+                    "Fotoğraf yüklenemedi");
         }
     }
 }

@@ -3,10 +3,12 @@ package com.alibalci.isgmobil.isg.isgbackend.service.impl;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import com.alibalci.isgmobil.isg.isgbackend.dto.AiAnalysisResult;
 import com.alibalci.isgmobil.isg.isgbackend.dto.AiRequest;
+import com.alibalci.isgmobil.isg.isgbackend.exception.AiServiceException;
 import com.alibalci.isgmobil.isg.isgbackend.service.AiAnalysisService;
 
 @Service
@@ -24,8 +26,29 @@ public class AiAnalysisServiceImpl implements AiAnalysisService {
 
         AiRequest request = new AiRequest(imageUrl);
 
-        ResponseEntity<AiAnalysisResult> response = restTemplate.postForEntity(url, request, AiAnalysisResult.class);
+        try {
+            ResponseEntity<AiAnalysisResult> response = restTemplate.postForEntity(
+                    url,
+                    request,
+                    AiAnalysisResult.class);
 
-        return response.getBody();
+            AiAnalysisResult result = response.getBody();
+
+            if (result == null) {
+                throw new AiServiceException(
+                        "AI_EMPTY_RESPONSE",
+                        "Yapay zekâ servisinden geçerli bir sonuç alınamadı");
+            }
+
+            return result;
+
+        } catch (AiServiceException exception) {
+            throw exception;
+
+        } catch (RestClientException exception) {
+            throw new AiServiceException(
+                    "AI_SERVICE_UNAVAILABLE",
+                    "Yapay zekâ analizi şu anda tamamlanamadı");
+        }
     }
 }

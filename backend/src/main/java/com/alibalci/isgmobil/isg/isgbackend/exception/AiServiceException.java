@@ -1,9 +1,9 @@
 package com.alibalci.isgmobil.isg.isgbackend.exception;
 
-public class BadRequestException
+public class AiServiceException
         extends BusinessException {
 
-    public BadRequestException(
+    public AiServiceException(
             String code,
             String message) {
         super(code, message);

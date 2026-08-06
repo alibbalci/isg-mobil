@@ -15,10 +15,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationAnalyzeResponse;
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationConfirmRequest;
-import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationCreateRequest;
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationResponse;
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationUpdateRequest;
-import com.alibalci.isgmobil.isg.isgbackend.entity.RiskLevel;
 import com.alibalci.isgmobil.isg.isgbackend.entity.User;
 import com.alibalci.isgmobil.isg.isgbackend.service.ObservationService;
 import com.alibalci.isgmobil.isg.isgbackend.service.UserService;
@@ -54,27 +52,6 @@ public class ObservationController {
         User user = userService.getCurrentUser(email);
 
         return observationService.confirmObservation(request, user);
-    }
-
-    // Eski endpoint şimdilik duruyor.
-    // Final akış tamamlanınca bunu kaldıracağız veya kullanımdan çıkaracağız.
-    @PostMapping(consumes = { "multipart/form-data" })
-    public ObservationResponse createObservation(
-            @RequestParam("description") String description,
-            @RequestParam("riskLevel") RiskLevel riskLevel,
-            @RequestParam("companyId") Long companyId,
-            @RequestParam("file") MultipartFile file,
-            Authentication authentication) {
-
-        String email = authentication.getName();
-        User user = userService.getCurrentUser(email);
-
-        ObservationCreateRequest request = new ObservationCreateRequest();
-        request.setDescription(description);
-        request.setRiskLevel(riskLevel);
-        request.setCompanyId(companyId);
-
-        return observationService.createObservation(request, file, user);
     }
 
     @GetMapping

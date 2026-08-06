@@ -1,9 +1,9 @@
 package com.alibalci.isgmobil.isg.isgbackend.exception;
 
-public class BadRequestException
+public class InvalidStatusTransitionException
         extends BusinessException {
 
-    public BadRequestException(
+    public InvalidStatusTransitionException(
             String code,
             String message) {
         super(code, message);

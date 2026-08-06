@@ -4,25 +4,41 @@ import java.time.LocalDateTime;
 
 public class ApiError {
 
-    private String message;
-    private int status;
-    private LocalDateTime timestamp;
+    private final LocalDateTime timestamp;
+    private final int status;
+    private final String code;
+    private final String message;
+    private final String path;
 
-    public ApiError(String message, int status) {
-        this.message = message;
-        this.status = status;
+    public ApiError(
+            int status,
+            String code,
+            String message,
+            String path) {
         this.timestamp = LocalDateTime.now();
+        this.status = status;
+        this.code = code;
+        this.message = message;
+        this.path = path;
     }
 
-    public String getMessage() {
-        return message;
+    public LocalDateTime getTimestamp() {
+        return timestamp;
     }
 
     public int getStatus() {
         return status;
     }
 
-    public LocalDateTime getTimestamp() {
-        return timestamp;
+    public String getCode() {
+        return code;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public String getPath() {
+        return path;
     }
 }

@@ -17,11 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
-/*
-    @GetMapping("/me")
-    public String getCurrentUser(Authentication authentication) {
-        return authentication.getName();
-    }*/
+
 
     @GetMapping("/me")
     public UserResponse getCurrentUser(Authentication authentication) {

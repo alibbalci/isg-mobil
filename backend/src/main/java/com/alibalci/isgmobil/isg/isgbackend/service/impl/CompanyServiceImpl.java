@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 
 import com.alibalci.isgmobil.isg.isgbackend.entity.Company;
 import com.alibalci.isgmobil.isg.isgbackend.entity.User;
+import com.alibalci.isgmobil.isg.isgbackend.exception.ResourceNotFoundException;
+import com.alibalci.isgmobil.isg.isgbackend.exception.UnauthorizedException;
 import com.alibalci.isgmobil.isg.isgbackend.repository.CompanyRepository;
 import com.alibalci.isgmobil.isg.isgbackend.service.CompanyService;
 
@@ -34,17 +36,19 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public Company getCompanyById(Long id, User user) {
         return companyRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> new RuntimeException("Company not found"));
+                .orElseThrow(() -> companyNotFound(id));
     }
 
     @Override
     public void deleteCompany(Long id, User user) {
         Company company = companyRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Company noy found "));
+                .orElseThrow(() -> companyNotFound(id));
 
         // güvenlik kontrolü
         if (!company.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You cannot delete this company");
+            throw new UnauthorizedException(
+                    "COMPANY_ACCESS_DENIED",
+                    "Bu şirketi silme yetkiniz yok");
         }
         companyRepository.delete(company);
     }
@@ -52,11 +56,13 @@ public class CompanyServiceImpl implements CompanyService {
     @Override
     public Company updateCompany(Long id, Company updatedCompany, User user) {
         Company existingCompany = companyRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Company not found"));
+                .orElseThrow(() -> companyNotFound(id));
 
         // güvenlik kontrolü
         if (!existingCompany.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You cannot update this company");
+            throw new UnauthorizedException(
+                    "COMPANY_ACCESS_DENIED",
+                    "Bu şirketi güncelleme yetkiniz yok");
         }
 
         existingCompany.setName(updatedCompany.getName());
@@ -66,5 +72,11 @@ public class CompanyServiceImpl implements CompanyService {
         existingCompany.setOccupationalPhysician(updatedCompany.getOccupationalPhysician());
 
         return companyRepository.save(existingCompany);
+    }
+
+    private ResourceNotFoundException companyNotFound(Long id) {
+        return new ResourceNotFoundException(
+                "COMPANY_NOT_FOUND",
+                "Şirket bulunamadı: " + id);
     }
 }

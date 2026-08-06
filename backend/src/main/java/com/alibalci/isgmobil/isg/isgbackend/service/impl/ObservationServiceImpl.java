@@ -22,6 +22,8 @@ import com.alibalci.isgmobil.isg.isgbackend.entity.Observation;
 import com.alibalci.isgmobil.isg.isgbackend.entity.ObservationStatus;
 import com.alibalci.isgmobil.isg.isgbackend.entity.RiskCatalog;
 import com.alibalci.isgmobil.isg.isgbackend.entity.User;
+import com.alibalci.isgmobil.isg.isgbackend.exception.InvalidStatusTransitionException;
+import com.alibalci.isgmobil.isg.isgbackend.exception.ResourceNotFoundException;
 import com.alibalci.isgmobil.isg.isgbackend.repository.CompanyRepository;
 import com.alibalci.isgmobil.isg.isgbackend.repository.ObservationRepository;
 import com.alibalci.isgmobil.isg.isgbackend.repository.RiskCatalogRepository;
@@ -49,7 +51,7 @@ public class ObservationServiceImpl implements ObservationService {
 
         companyRepository
                 .findByIdAndUser(companyId, user)
-                .orElseThrow(() -> new RuntimeException("Company not found"));
+                .orElseThrow(() -> companyNotFound(companyId));
 
         String photoUrl = photoStorageService.uploadPhoto(file);
 
@@ -68,11 +70,13 @@ public class ObservationServiceImpl implements ObservationService {
 
         Company company = companyRepository
                 .findByIdAndUser(request.getCompanyId(), user)
-                .orElseThrow(() -> new RuntimeException("Company not found"));
+                .orElseThrow(() -> companyNotFound(request.getCompanyId()));
 
         RiskCatalog risk = riskCatalogRepository
                 .findById(request.getSelectedRiskCode())
-                .orElseThrow(() -> new RuntimeException("Risk bulunamadı"));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RISK_NOT_FOUND",
+                        "Risk bulunamadı: " + request.getSelectedRiskCode()));
 
         Integer riskScore = null;
         if (risk.getOlasilik() != null && risk.getSiddet() != null) {
@@ -129,7 +133,7 @@ public class ObservationServiceImpl implements ObservationService {
 
         Company company = companyRepository
                 .findByIdAndUser(request.getCompanyId(), user)
-                .orElseThrow(() -> new RuntimeException("Company not found"));
+                .orElseThrow(() -> companyNotFound(request.getCompanyId()));
 
         String photoUrl = photoStorageService.uploadPhoto(file);
 
@@ -181,7 +185,7 @@ public class ObservationServiceImpl implements ObservationService {
 
         Observation observation = observationRepository
                 .findByIdAndUser(id, user)
-                .orElseThrow(() -> new RuntimeException("Observation not found"));
+                .orElseThrow(() -> observationNotFound(id));
 
         if (request.getDescription() != null) {
             observation.setDescription(request.getDescription());
@@ -209,7 +213,9 @@ public class ObservationServiceImpl implements ObservationService {
                 observation.setStatus(incoming);
 
             } else {
-                throw new RuntimeException("Geçersiz status geçişi");
+                throw new InvalidStatusTransitionException(
+                        "INVALID_STATUS_TRANSITION",
+                        "Geçersiz durum geçişi: " + current + " -> " + incoming);
             }
         }
 
@@ -232,7 +238,7 @@ public class ObservationServiceImpl implements ObservationService {
     public ObservationResponse getObservationById(Long id, User user) {
         Observation observation = observationRepository
                 .findByIdAndUser(id, user)
-                .orElseThrow(() -> new RuntimeException("Observation bulunamadı"));
+                .orElseThrow(() -> observationNotFound(id));
 
         return mapToResponse(observation);
     }
@@ -241,7 +247,7 @@ public class ObservationServiceImpl implements ObservationService {
     public void deleteObservationById(Long id, User user) {
         Observation observation = observationRepository
                 .findByIdAndUser(id, user)
-                .orElseThrow(() -> new RuntimeException("Observation bulunamadı"));
+                .orElseThrow(() -> observationNotFound(id));
 
         observationRepository.delete(observation);
     }
@@ -303,6 +309,18 @@ public class ObservationServiceImpl implements ObservationService {
                 .reviewedBy(reviewedById)
 
                 .build();
+    }
+
+    private ResourceNotFoundException companyNotFound(Long id) {
+        return new ResourceNotFoundException(
+                "COMPANY_NOT_FOUND",
+                "Şirket bulunamadı: " + id);
+    }
+
+    private ResourceNotFoundException observationNotFound(Long id) {
+        return new ResourceNotFoundException(
+                "OBSERVATION_NOT_FOUND",
+                "Gözlem bulunamadı: " + id);
     }
 
     private String formatSuggestions(String rawSuggestions) {
