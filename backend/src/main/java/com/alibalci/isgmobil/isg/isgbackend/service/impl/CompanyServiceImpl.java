@@ -1,14 +1,17 @@
 package com.alibalci.isgmobil.isg.isgbackend.service.impl;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.alibalci.isgmobil.isg.isgbackend.dto.CompanyCreateRequest;
+import com.alibalci.isgmobil.isg.isgbackend.dto.CompanyResponse;
+import com.alibalci.isgmobil.isg.isgbackend.dto.CompanyUpdateRequest;
 import com.alibalci.isgmobil.isg.isgbackend.entity.Company;
 import com.alibalci.isgmobil.isg.isgbackend.entity.User;
 import com.alibalci.isgmobil.isg.isgbackend.exception.ResourceNotFoundException;
-import com.alibalci.isgmobil.isg.isgbackend.exception.UnauthorizedException;
+import com.alibalci.isgmobil.isg.isgbackend.mapper.CompanyMapper;
 import com.alibalci.isgmobil.isg.isgbackend.repository.CompanyRepository;
 import com.alibalci.isgmobil.isg.isgbackend.service.CompanyService;
 
@@ -19,64 +22,48 @@ import lombok.RequiredArgsConstructor;
 public class CompanyServiceImpl implements CompanyService {
 
     private final CompanyRepository companyRepository;
+    private final CompanyMapper companyMapper;
 
     @Override
-    public Company createCompany(Company company, User user) {
-        // şirketi login olan kullanıcıya bağla
-        company.setUser(user);
-        company.setCreatedAt(LocalDateTime.now());
-        return companyRepository.save(company);
+    @Transactional
+    public CompanyResponse createCompany(CompanyCreateRequest request, User user) {
+        Company company = companyMapper.toEntity(request, user);
+        return companyMapper.toResponse(companyRepository.save(company));
     }
 
     @Override
-    public List<Company> getUserCompanies(User user) {
-        return companyRepository.findByUser(user);
+    @Transactional(readOnly = true)
+    public List<CompanyResponse> getUserCompanies(User user) {
+        return companyRepository.findByUser(user)
+                .stream()
+                .map(companyMapper::toResponse)
+                .toList();
     }
 
     @Override
-    public Company getCompanyById(Long id, User user) {
-        return companyRepository.findByIdAndUser(id, user)
-                .orElseThrow(() -> companyNotFound(id));
+    @Transactional(readOnly = true)
+    public CompanyResponse getCompanyById(Long id, User user) {
+        return companyMapper.toResponse(findOwnedCompany(id, user));
     }
 
     @Override
+    @Transactional
     public void deleteCompany(Long id, User user) {
-        Company company = companyRepository.findById(id)
-                .orElseThrow(() -> companyNotFound(id));
-
-        // güvenlik kontrolü
-        if (!company.getUser().getId().equals(user.getId())) {
-            throw new UnauthorizedException(
-                    "COMPANY_ACCESS_DENIED",
-                    "Bu şirketi silme yetkiniz yok");
-        }
-        companyRepository.delete(company);
+        companyRepository.delete(findOwnedCompany(id, user));
     }
 
     @Override
-    public Company updateCompany(Long id, Company updatedCompany, User user) {
-        Company existingCompany = companyRepository.findById(id)
-                .orElseThrow(() -> companyNotFound(id));
-
-        // güvenlik kontrolü
-        if (!existingCompany.getUser().getId().equals(user.getId())) {
-            throw new UnauthorizedException(
-                    "COMPANY_ACCESS_DENIED",
-                    "Bu şirketi güncelleme yetkiniz yok");
-        }
-
-        existingCompany.setName(updatedCompany.getName());
-        existingCompany.setAddress(updatedCompany.getAddress());
-        existingCompany.setHazardClass(updatedCompany.getHazardClass());
-        existingCompany.setPhone(updatedCompany.getPhone());
-        existingCompany.setOccupationalPhysician(updatedCompany.getOccupationalPhysician());
-
-        return companyRepository.save(existingCompany);
+    @Transactional
+    public CompanyResponse updateCompany(Long id, CompanyUpdateRequest request, User user) {
+        Company company = findOwnedCompany(id, user);
+        companyMapper.updateEntity(request, company);
+        return companyMapper.toResponse(companyRepository.saveAndFlush(company));
     }
 
-    private ResourceNotFoundException companyNotFound(Long id) {
-        return new ResourceNotFoundException(
-                "COMPANY_NOT_FOUND",
-                "Şirket bulunamadı: " + id);
+    private Company findOwnedCompany(Long id, User user) {
+        return companyRepository.findByIdAndUser(id, user)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "COMPANY_NOT_FOUND",
+                        "Şirket bulunamadı: " + id));
     }
 }

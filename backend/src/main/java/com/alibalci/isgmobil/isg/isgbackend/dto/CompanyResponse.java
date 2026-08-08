@@ -9,5 +9,6 @@ public record CompanyResponse(
         String hazardClass,
         String phone,
         String occupationalPhysician,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        LocalDateTime updatedAt
 ) {}

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name="companies")
+@Table(name = "companies")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -17,23 +17,37 @@ public class Company {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id  ;
+    private Long id;
 
-    private String name ;
+    @Column(nullable = false)
+    private String name;
 
-    private String address ;
+    private String address;
 
     private String hazardClass;
 
-    private String phone ;
+    private String phone;
 
-    private String occupationalPhysician ;
+    private String occupationalPhysician;
 
     private LocalDateTime createdAt;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id")
+    private LocalDateTime updatedAt;
 
-    private User user ;
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @PrePersist
+    protected void onCreate() {
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 
 }

@@ -12,13 +12,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.alibalci.isgmobil.isg.isgbackend.dto.CompanyCreateRequest;
 import com.alibalci.isgmobil.isg.isgbackend.dto.CompanyResponse;
-import com.alibalci.isgmobil.isg.isgbackend.entity.Company;
+import com.alibalci.isgmobil.isg.isgbackend.dto.CompanyUpdateRequest;
 import com.alibalci.isgmobil.isg.isgbackend.entity.User;
 import com.alibalci.isgmobil.isg.isgbackend.service.CompanyService;
 import com.alibalci.isgmobil.isg.isgbackend.service.UserService;
 
 import lombok.RequiredArgsConstructor;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/companies")
@@ -30,71 +32,35 @@ public class CompanyController {
     private final UserService userService;
 
     @PostMapping
-    public CompanyResponse createCompany(@RequestBody Company company,
+    public CompanyResponse createCompany(@Valid @RequestBody CompanyCreateRequest request,
             Authentication authentication) {
-
-        String email = authentication.getName();
-        User user = userService.getCurrentUser(email);
-
-        Company saved = companyService.createCompany(company, user);
-
-        return new CompanyResponse(
-                saved.getId(),
-                saved.getName(),
-                saved.getAddress(),
-                saved.getHazardClass(),
-                saved.getPhone(),
-                saved.getOccupationalPhysician(),
-                saved.getCreatedAt());
+        return companyService.createCompany(request, getCurrentUser(authentication));
     }
 
     @GetMapping
-    public List<Company> getCompanies(Authentication authentication) {
-        String email = authentication.getName();
-        User user = userService.getCurrentUser(email);
-        return companyService.getUserCompanies(user);
+    public List<CompanyResponse> getCompanies(Authentication authentication) {
+        return companyService.getUserCompanies(getCurrentUser(authentication));
     }
 
     @GetMapping("/{id}")
     public CompanyResponse getCompanyById(@PathVariable Long id,
             Authentication authentication) {
-        String email = authentication.getName();
-        User user = userService.getCurrentUser(email);
-        Company company = companyService.getCompanyById(id, user);
-
-        return new CompanyResponse(
-                company.getId(),
-                company.getName(),
-                company.getAddress(),
-                company.getHazardClass(),
-                company.getPhone(),
-                company.getOccupationalPhysician(),
-                company.getCreatedAt());
+        return companyService.getCompanyById(id, getCurrentUser(authentication));
     }
 
     @DeleteMapping("/{id}")
     public void deleteCompany(@PathVariable Long id, Authentication authentication) {
-        String email = authentication.getName();
-        User user = userService.getCurrentUser(email);
-        companyService.deleteCompany(id, user);
+        companyService.deleteCompany(id, getCurrentUser(authentication));
     }
 
     @PutMapping("/{id}")
     public CompanyResponse updateCompany(@PathVariable Long id,
-            @RequestBody Company company,
+            @Valid @RequestBody CompanyUpdateRequest request,
             Authentication authentication) {
-        String email = authentication.getName();
-        User user = userService.getCurrentUser(email);
-        Company updated = companyService.updateCompany(id, company, user);
-
-        return new CompanyResponse(
-                updated.getId(),
-                updated.getName(),
-                updated.getAddress(),
-                updated.getHazardClass(),
-                updated.getPhone(),
-                updated.getOccupationalPhysician(),
-                updated.getCreatedAt());
+        return companyService.updateCompany(id, request, getCurrentUser(authentication));
     }
 
+    private User getCurrentUser(Authentication authentication) {
+        return userService.getCurrentUser(authentication.getName());
+    }
 }
