@@ -9,12 +9,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ObservationConfirmRequest {
 
-    private Long companyId;
-
-    private String photoUrl;
-
-    private String aiDescription;
-
     private String description;
 
     private String selectedRiskCode;

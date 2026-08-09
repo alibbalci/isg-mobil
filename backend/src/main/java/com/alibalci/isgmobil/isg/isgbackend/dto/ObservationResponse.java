@@ -40,6 +40,7 @@ public class ObservationResponse {
 
     private String status;
     private LocalDateTime createdAt;
+    private LocalDateTime confirmedAt;
 
     private Long companyId;
     private String companyName;

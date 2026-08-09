@@ -85,6 +85,8 @@ public class Observation {
 
     private LocalDateTime updatedAt;
 
+    private LocalDateTime confirmedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;

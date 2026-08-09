@@ -43,15 +43,16 @@ public class ObservationController {
         return observationService.analyzeObservation(companyId, file, user);
     }
 
-    @PostMapping("/confirm")
+    @PostMapping("/{observationId}/confirm")
     public ObservationResponse confirmObservation(
+            @PathVariable Long observationId,
             @RequestBody ObservationConfirmRequest request,
             Authentication authentication) {
 
         String email = authentication.getName();
         User user = userService.getCurrentUser(email);
 
-        return observationService.confirmObservation(request, user);
+        return observationService.confirmObservation(observationId, request, user);
     }
 
     @GetMapping

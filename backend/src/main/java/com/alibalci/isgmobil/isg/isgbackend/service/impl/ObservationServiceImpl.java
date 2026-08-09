@@ -14,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 import com.alibalci.isgmobil.isg.isgbackend.dto.AiAnalysisResult;
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationAnalyzeResponse;
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationConfirmRequest;
-import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationCreateRequest;
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationResponse;
 import com.alibalci.isgmobil.isg.isgbackend.dto.ObservationUpdateRequest;
 import com.alibalci.isgmobil.isg.isgbackend.entity.Company;
@@ -49,28 +48,51 @@ public class ObservationServiceImpl implements ObservationService {
             MultipartFile file,
             User user) {
 
-        companyRepository
+        Company company = companyRepository
                 .findByIdAndUser(companyId, user)
                 .orElseThrow(() -> companyNotFound(companyId));
 
+        Observation observation = Observation.builder()
+                .status(ObservationStatus.PENDING_AI)
+                .company(company)
+                .user(user)
+                .build();
+
+        observation = observationRepository.save(observation);
+
         String photoUrl = photoStorageService.uploadPhoto(file);
+        observation.setPhotoUrl(photoUrl);
+        observation = observationRepository.save(observation);
 
         AiAnalysisResult aiResult = aiAnalysisService.analyzeImage(photoUrl);
 
+        observation.setAiDescription(aiResult.getDescription());
+        observation.setStatus(ObservationStatus.AI_ANALYZED);
+        observation = observationRepository.save(observation);
+
         return new ObservationAnalyzeResponse(
+                observation.getId(),
                 photoUrl,
+                observation.getStatus().name(),
                 aiResult.getDescription(),
                 aiResult.getRisks());
     }
 
     @Override
     public ObservationResponse confirmObservation(
+            Long observationId,
             ObservationConfirmRequest request,
             User user) {
 
-        Company company = companyRepository
-                .findByIdAndUser(request.getCompanyId(), user)
-                .orElseThrow(() -> companyNotFound(request.getCompanyId()));
+        Observation observation = observationRepository
+                .findByIdAndUser(observationId, user)
+                .orElseThrow(() -> observationNotFound(observationId));
+
+        if (observation.getStatus() != ObservationStatus.AI_ANALYZED) {
+            throw new InvalidStatusTransitionException(
+                    "INVALID_STATUS_TRANSITION",
+                    "Yalnızca AI_ANALYZED durumundaki gözlem onaylanabilir");
+        }
 
         RiskCatalog risk = riskCatalogRepository
                 .findById(request.getSelectedRiskCode())
@@ -89,90 +111,26 @@ public class ObservationServiceImpl implements ObservationService {
             residualRiskScore = risk.getOnlemSonrasiOlasilik() * risk.getOnlemSonrasiSiddet();
         }
 
-        Observation observation = Observation.builder()
-                .photoUrl(request.getPhotoUrl())
-                .description(request.getDescription())
-                .aiDescription(request.getAiDescription())
-
-                .aiRisk(risk.getTehlikeAdi())
-                .aiSuggestions(formatSuggestions(risk.getOneriListesi()))
-
-                .selectedRiskCode(risk.getTehlikeKodu())
-                .selectedRiskName(risk.getTehlikeAdi())
-                .possibleDamage(risk.getOlasiZarar())
-                .suggestions(formatSuggestions(risk.getOneriListesi()))
-
-                .probability(risk.getOlasilik())
-                .severity(risk.getSiddet())
-                .riskScore(riskScore)
-
-                .postProbability(risk.getOnlemSonrasiOlasilik())
-                .postSeverity(risk.getOnlemSonrasiSiddet())
-                .residualRiskScore(residualRiskScore)
-
-                .responsiblePerson(risk.getSorumluKisi())
-                .dueDays(risk.getDuzeltmeSuresiGun())
-
-                .status(ObservationStatus.AI_ANALYZED)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .company(company)
-                .user(user)
-                .build();
+        observation.setDescription(request.getDescription());
+        observation.setAiRisk(risk.getTehlikeAdi());
+        observation.setAiSuggestions(formatSuggestions(risk.getOneriListesi()));
+        observation.setSelectedRiskCode(risk.getTehlikeKodu());
+        observation.setSelectedRiskName(risk.getTehlikeAdi());
+        observation.setPossibleDamage(risk.getOlasiZarar());
+        observation.setSuggestions(formatSuggestions(risk.getOneriListesi()));
+        observation.setProbability(risk.getOlasilik());
+        observation.setSeverity(risk.getSiddet());
+        observation.setRiskScore(riskScore);
+        observation.setPostProbability(risk.getOnlemSonrasiOlasilik());
+        observation.setPostSeverity(risk.getOnlemSonrasiSiddet());
+        observation.setResidualRiskScore(residualRiskScore);
+        observation.setResponsiblePerson(risk.getSorumluKisi());
+        observation.setDueDays(risk.getDuzeltmeSuresiGun());
+        observation.setStatus(ObservationStatus.CONFIRMED);
+        observation.setConfirmedAt(LocalDateTime.now());
 
         Observation saved = observationRepository.save(observation);
 
-        return mapToResponse(saved);
-    }
-
-    @Override
-    public ObservationResponse createObservation(
-            ObservationCreateRequest request,
-            MultipartFile file,
-            User user) {
-
-        Company company = companyRepository
-                .findByIdAndUser(request.getCompanyId(), user)
-                .orElseThrow(() -> companyNotFound(request.getCompanyId()));
-
-        String photoUrl = photoStorageService.uploadPhoto(file);
-
-        AiAnalysisResult aiResult = aiAnalysisService.analyzeImage(photoUrl);
-
-        String aiSuggestions = null;
-        String aiRisk = null;
-
-        if (aiResult != null && aiResult.getRisks() != null && !aiResult.getRisks().isEmpty()) {
-            aiSuggestions = aiResult.getRisks().stream()
-                    .map(risk -> String.format(
-                            "%s (%s) - score: %.4f",
-                            risk.getName(),
-                            risk.getCode(),
-                            risk.getScore()))
-                    .collect(Collectors.joining(" | "));
-
-            aiRisk = aiResult.getRisks().get(0).getName();
-        }
-
-        String finalDescription = request.getDescription();
-        if (aiResult != null && aiResult.getDescription() != null && !aiResult.getDescription().isBlank()) {
-            finalDescription = aiResult.getDescription();
-        }
-
-        Observation observation = Observation.builder()
-                .photoUrl(photoUrl)
-                .description(finalDescription)
-                .riskLevel(request.getRiskLevel())
-                .aiRisk(aiRisk)
-                .aiSuggestions(aiSuggestions)
-                .status(ObservationStatus.AI_ANALYZED)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .company(company)
-                .user(user)
-                .build();
-
-        Observation saved = observationRepository.save(observation);
         return mapToResponse(saved);
     }
 
@@ -199,7 +157,7 @@ public class ObservationServiceImpl implements ObservationService {
             ObservationStatus current = observation.getStatus();
             ObservationStatus incoming = request.getStatus();
 
-            if (current == ObservationStatus.AI_ANALYZED &&
+            if (current == ObservationStatus.CONFIRMED &&
                     incoming == ObservationStatus.REVIEWED) {
 
                 observation.setStatus(incoming);
@@ -295,6 +253,7 @@ public class ObservationServiceImpl implements ObservationService {
 
                 // Tarihler
                 .createdAt(observation.getCreatedAt())
+                .confirmedAt(observation.getConfirmedAt())
                 .reviewedAt(observation.getReviewedAt())
 
                 // Company

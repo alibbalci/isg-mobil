@@ -13,7 +13,11 @@ import lombok.Setter;
 @AllArgsConstructor
 public class ObservationAnalyzeResponse {
 
+    private Long observationId;
+
     private String photoUrl;
+
+    private String status;
 
     private String aiDescription;
 
