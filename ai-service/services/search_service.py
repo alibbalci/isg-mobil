@@ -8,21 +8,84 @@ model = SentenceTransformer(
     "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 )
 
+
 # Connection pool
 db_pool = psycopg2.pool.SimpleConnectionPool(1, 5, **DB_CONFIG)
 
 
 def normalize_suggestions(suggestions_raw):
-    if isinstance(suggestions_raw, str):
-        return [s.strip() for s in suggestions_raw.split("|") if s.strip()]
 
+    if suggestions_raw is None:
+        return []
+
+    # PostgreSQL driver doğrudan liste döndürürse
     if isinstance(suggestions_raw, list):
-        return [str(s).strip() for s in suggestions_raw if str(s).strip()]
+
+        normalized = []
+
+        for item in suggestions_raw:
+
+            if not item:
+                continue
+
+            item = str(item).strip()
+
+            # Liste içinde PostgreSQL array string'i varsa:
+            # {"Öneri 1","Öneri 2"}
+            if item.startswith("{") and item.endswith("}"):
+
+                item = item[1:-1]
+
+                parts = item.split('","')
+
+                for part in parts:
+                    clean = part.strip().strip('"')
+
+                    if clean:
+                        normalized.append(clean)
+
+            # | ile ayrılmışsa
+            elif "|" in item:
+
+                normalized.extend(
+                    [part.strip() for part in item.split("|") if part.strip()]
+                )
+
+            else:
+                normalized.append(item)
+
+        return normalized
+
+    # String geldiyse
+    if isinstance(suggestions_raw, str):
+
+        raw = suggestions_raw.strip()
+
+        if not raw:
+            return []
+
+        # PostgreSQL array biçimi:
+        # {"Öneri 1","Öneri 2"}
+        if raw.startswith("{") and raw.endswith("}"):
+
+            raw = raw[1:-1]
+
+            return [
+                part.strip().strip('"') for part in raw.split('","') if part.strip()
+            ]
+
+        # Eski | formatını da destekle
+        if "|" in raw:
+
+            return [part.strip() for part in raw.split("|") if part.strip()]
+
+        return [raw]
 
     return []
 
 
-def search_risk(query: str, threshold: float = 0.5, top_k: int = 3):
+def search_risk(query: str, threshold: float = 0.45):
+
     print("\n===== SEARCH RISK DEBUG =====")
     print("QUERY:", query)
 
@@ -31,15 +94,17 @@ def search_risk(query: str, threshold: float = 0.5, top_k: int = 3):
 
     # 1. Query embedding
     embedding = model.encode(query).tolist()
+
     print("EMBEDDING LENGTH:", len(embedding))
 
     conn = db_pool.getconn()
     cur = conn.cursor()
 
     try:
+
         cur.execute(
             """
-            SELECT 
+            SELECT
                 tehlike_kodu,
                 tehlike_adi,
                 olasi_zarar,
@@ -60,42 +125,47 @@ def search_risk(query: str, threshold: float = 0.5, top_k: int = 3):
         results = []
 
         for row in rows:
+
             code = row[0]
             name = row[1]
             damage = row[2]
             suggestions_raw = row[3]
             score = float(row[4])
 
-            print(f"""
-CODE: {code}
-NAME: {name}
-SCORE: {score}
----------------------
-""")
+            print("---------------------")
+            print("CODE:", code)
+            print("NAME:", name)
+            print("SCORE:", score)
 
             if score < threshold:
+
                 print("❌ BELOW THRESHOLD")
                 continue
 
             print("✅ PASSED THRESHOLD")
+
+            suggestions = normalize_suggestions(suggestions_raw)
+
+            print("SUGGESTIONS:", suggestions)
 
             results.append(
                 {
                     "code": code,
                     "name": name,
                     "damage": damage,
-                    "suggestions": normalize_suggestions(suggestions_raw),
+                    "suggestions": suggestions,
                     "score": score,
                 }
             )
 
-        selected = results[:top_k]
-
         print("\n--- FINAL SELECTED ---")
-        print(selected)
 
-        return selected
+        for risk in results:
+            print(risk["code"], risk["score"])
+
+        return results
 
     finally:
+
         cur.close()
         db_pool.putconn(conn)

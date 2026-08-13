@@ -78,6 +78,7 @@ public class ObservationServiceImpl implements ObservationService {
                 aiResult.getRisks());
     }
 
+    @Transactional
     @Override
     public ObservationResponse confirmObservation(
             Long observationId,

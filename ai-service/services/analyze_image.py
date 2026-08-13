@@ -5,7 +5,7 @@ import base64
 from fastapi import HTTPException
 
 # API Anahtarının doğru yüklenip yüklenmediğini kontrol etmek için terminale yazdırıyoruz
-print(f"BAŞLATILAN API KEY (İlk 10 Hane): {GEMINI_API_KEY[:10]}...")
+print(f"BAŞLATILAN API KEY (İlk 3 Hane): {GEMINI_API_KEY[:3]}...")
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
