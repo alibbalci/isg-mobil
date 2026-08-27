@@ -2,6 +2,8 @@ package com.alibalci.isgmobil.isg.isgbackend.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -48,4 +50,8 @@ public class RiskCatalog {
 
     @Column(name = "onlem_sonrasi_siddet")
     private Integer onlemSonrasiSiddet;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "risk_level")
+    private RiskLevel riskLevel;
 }

@@ -1,8 +1,9 @@
 import pandas as pd
 import psycopg2
+from pathlib import Path
 from config import DB_CONFIG
 
-EXCEL_PATH = "tehlikeveoneri.xlsx"
+EXCEL_PATH = Path(__file__).resolve().parent / "data" / "tehlikeveoneri.xlsx"
 
 REQUIRED_COLUMNS = [
     "tehlike_kodu",
@@ -16,7 +17,15 @@ REQUIRED_COLUMNS = [
     "duzeltme_suresi_gun",
     "onlem_sonrasi_olasilik",
     "onlem_sonrasi_siddet",
+    "risk_grubu",
 ]
+
+RISK_LEVEL_MAP = {
+    "Düşük Risk": "LOW",
+    "Orta Risk": "MEDIUM",
+    "Yüksek Risk": "HIGH",
+    "Kritik Risk": "CRITICAL",
+}
 
 
 def to_int_or_none(value):
@@ -32,6 +41,14 @@ def parse_oneri_listesi(value):
         return []
 
     return [item.strip() for item in value.split("|") if item.strip()]
+
+
+def parse_risk_level(value):
+    risk_group = str(value).strip()
+    try:
+        return RISK_LEVEL_MAP[risk_group]
+    except KeyError as exc:
+        raise ValueError(f"Geçersiz risk_grubu: {risk_group!r}") from exc
 
 
 def main():
@@ -50,8 +67,7 @@ def main():
     conn = psycopg2.connect(**DB_CONFIG)
     cur = conn.cursor()
 
-    inserted = 0
-    skipped = 0
+    processed = 0
     failed = 0
 
     for i, row in df.iterrows():
@@ -71,10 +87,12 @@ def main():
                     sorumlu_kisi,
                     duzeltme_suresi_gun,
                     onlem_sonrasi_olasilik,
-                    onlem_sonrasi_siddet
+                    onlem_sonrasi_siddet,
+                    risk_level
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (tehlike_kodu) DO NOTHING;
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (tehlike_kodu) DO UPDATE
+                SET risk_level = EXCLUDED.risk_level;
                 """,
                 (
                     str(row["tehlike_kodu"]).strip(),
@@ -88,13 +106,12 @@ def main():
                     to_int_or_none(row["duzeltme_suresi_gun"]),
                     to_int_or_none(row["onlem_sonrasi_olasilik"]),
                     to_int_or_none(row["onlem_sonrasi_siddet"]),
+                    parse_risk_level(row["risk_grubu"]),
                 ),
             )
 
             if cur.rowcount == 1:
-                inserted += 1
-            else:
-                skipped += 1
+                processed += 1
 
         except Exception as e:
             print(f"❌ Hata satır {i + 2}: {e}")
@@ -105,8 +122,7 @@ def main():
     conn.close()
 
     print("================================")
-    print(f"✔ Eklenen: {inserted}")
-    print(f"↪ Zaten vardı / geçildi: {skipped}")
+    print(f"✔ Eklenen/güncellenen: {processed}")
     print(f"❌ Hatalı: {failed}")
     print("✔ Import tamamlandı.")
 
